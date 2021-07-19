@@ -1,0 +1,14 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+streamlit = ">=0.84.1"
+
+[dev-packages]
+black = "*"  # Pretty formatting of Python code
+pynvim = "*" # Allows nvim users to use black formatting
+
+[pipenv]
+allow_prereleases = true
