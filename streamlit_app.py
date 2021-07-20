@@ -25,23 +25,31 @@ import pydeck as pdk
 st.set_page_config(layout="wide")
 
 # LOADING DATA
-DATE_TIME = "date/time"
-DATA_URL = (
-    "http://s3-us-west-2.amazonaws.com/streamlit-demo-data/uber-raw-data-sep14.csv.gz"
-)
+DATE_TIME = "Date/Time"
 
 
 @st.cache(persist=True)
 def load_data(nrows):
-    data: pd.DataFrame = pd.read_csv(DATA_URL, nrows=nrows)  # type: ignore
-    lowercase = lambda x: str(x).lower()
-    data.rename(lowercase, axis="columns", inplace=True)
+    data: pd.DataFrame = pd.read_csv(
+        "http://s3-us-west-2.amazonaws.com/streamlit-demo-data/"
+        "uber-raw-data-sep14.csv.gz",
+        nrows=nrows,
+    )  # type: ignore
     data[DATE_TIME] = pd.to_datetime(data[DATE_TIME])  # type: ignore
     return data
 
 
 data = load_data(100000)
 
+# zoom_level = 12
+
+# Lat, lon, zoom
+maps = {
+    "New York City": (40.7359, -73.9780, 11),
+    "La Guardia Airport": (40.7900, -73.8700, 12),
+    "JFK Airport": (40.6650, -73.7821, 12),
+    "Newark Airport": (40.7090, -74.1805, 12),
+}
 # CREATING FUNCTION FOR MAPS
 
 
@@ -59,7 +67,7 @@ def map(data, lat, lon, zoom):
                 pdk.Layer(
                     "HexagonLayer",
                     data=data,
-                    get_position=["lon", "lat"],
+                    get_position=["Lon", "Lat"],
                     radius=100,
                     elevation_scale=4,
                     elevation_range=[0, 1000],
@@ -90,69 +98,85 @@ with row1_2:
 # FILTERING DATA BY HOUR SELECTED
 data = data[data[DATE_TIME].dt.hour == hour_selected]
 
-# LAYING OUT THE MIDDLE SECTION OF THE APP WITH THE MAPS
-row2_1, row2_2, row2_3, row2_4 = st.beta_columns((2, 1, 1, 1))
+# for ((name, (lat, lon, zoom)), col) in zip(maps.items(), st.beta_columns(4)):
+#     # with col:
+#     st.write(f"**{name}**")
+#     map(data, lat, lon, zoom)
 
-# SETTING THE ZOOM LOCATIONS FOR THE AIRPORTS
-la_guardia = [40.7900, -73.8700]
-jfk = [40.6650, -73.7821]
-newark = [40.7090, -74.1805]
-zoom_level = 12
-midpoint = [40.7359, -73.9780]
-# midpoint = (np.average(data["lat"]), np.average(data["lon"]))
-# st.write("midpoint", midpoint)
+for (name, (lat, lon, zoom)) in maps.items():
+    # with col:
+    # if "new" in name.lower():
+    #     continue
+    st.write(f"**{name}**")
+    map(data, lat, lon, zoom)
+    # break
+# st.write(name, lat, lon, zoom, type(col)
 
 
-with row2_1:
-    st.write(
-        "**All New York City from %i:00 and %i:00**"
-        % (hour_selected, (hour_selected + 1) % 24)
-    )
-    map(data, midpoint[0], midpoint[1], 11)
+# raise RuntimeError("Nothing.")
+# # LAYING OUT THE MIDDLE SECTION OF THE APP WITH THE MAPS
+# # row2_1, row2_2, row2_3, row2_4 =
 
-with row2_2:
-    st.write("**La Guardia Airport**")
-    map(data, la_guardia[0], la_guardia[1], zoom_level)
+# # # SETTING THE ZOOM LOCATIONS FOR THE AIRPORTS
+# # la_guardia = [40.7900, -73.8700]
+# # jfk = [40.6650, -73.7821]
+# # newark = [40.7090, -74.1805]
+# # zoom_level = 12
+# # midpoint = [40.7359, -73.9780]
+# # midpoint = (np.average(data["lat"]), np.average(data["lon"]))
+# # st.write("midpoint", midpoint)
 
-with row2_3:
-    st.write("**JFK Airport**")
-    map(data, jfk[0], jfk[1], zoom_level)
 
-with row2_4:
-    st.write("**Newark Airport**")
-    map(data, newark[0], newark[1], zoom_level)
+# with row2_1:
+#     st.write(
+#         "**All New York City from %i:00 and %i:00**"
+#         % (hour_selected, (hour_selected + 1) % 24)
+#     )
+#     map(data, midpoint[0], midpoint[1], 11)
 
-# FILTERING DATA FOR THE HISTOGRAM
-filtered = data[
-    (data[DATE_TIME].dt.hour >= hour_selected)  # type: ignore
-    & (data[DATE_TIME].dt.hour < (hour_selected + 1))  # type: ignore
-]
+# with row2_2:
+#     st.write("**La Guardia Airport**")
+#     map(data, la_guardia[0], la_guardia[1], zoom_level)
 
-hist = np.histogram(
-    filtered[DATE_TIME].dt.minute, bins=60, range=(0, 60)  # type: ignore
-)[0]
+# with row2_3:
+#     st.write("**JFK Airport**")
+#     map(data, jfk[0], jfk[1], zoom_level)
 
-chart_data = pd.DataFrame({"minute": range(60), "pickups": hist})
+# with row2_4:
+#     st.write("**Newark Airport**")
+#     map(data, newark[0], newark[1], zoom_level)
 
-# LAYING OUT THE HISTOGRAM SECTION
+# # FILTERING DATA FOR THE HISTOGRAM
+# filtered = data[
+#     (data[DATE_TIME].dt.hour >= hour_selected)  # type: ignore
+#     & (data[DATE_TIME].dt.hour < (hour_selected + 1))  # type: ignore
+# ]
 
-st.write("")
+# hist = np.histogram(
+#     filtered[DATE_TIME].dt.minute, bins=60, range=(0, 60)  # type: ignore
+# )[0]
 
-st.write(
-    "**Breakdown of rides per minute between %i:00 and %i:00**"
-    % (hour_selected, (hour_selected + 1) % 24)
-)
+# chart_data = pd.DataFrame({"minute": range(60), "pickups": hist})
 
-st.altair_chart(
-    alt.Chart(chart_data)
-    .mark_area(
-        interpolate="step-after",
-    )
-    .encode(
-        x=alt.X("minute:Q", scale=alt.Scale(nice=False)),
-        y=alt.Y("pickups:Q"),
-        tooltip=["minute", "pickups"],
-    )
-    .configure_mark(opacity=0.5, color="red"),
-    use_container_width=True,
-)
+# # LAYING OUT THE HISTOGRAM SECTION
+
+# st.write("")
+
+# st.write(
+#     "**Breakdown of rides per minute between %i:00 and %i:00**"
+#     % (hour_selected, (hour_selected + 1) % 24)
+# )
+
+# st.altair_chart(
+#     alt.Chart(chart_data)
+#     .mark_area(
+#         interpolate="step-after",
+#     )
+#     .encode(
+#         x=alt.X("minute:Q", scale=alt.Scale(nice=False)),
+#         y=alt.Y("pickups:Q"),
+#         tooltip=["minute", "pickups"],
+#     )
+#     .configure_mark(opacity=0.5, color="red"),
+#     use_container_width=True,
+# )
