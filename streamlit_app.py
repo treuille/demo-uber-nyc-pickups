@@ -13,7 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""An example of showing geographic data."""
+"""
+# NYC Uber Ridesharing Data
+
+Examining how Uber pickups vary over time in New York City's and at its major regional
+airports.  By sliding the slider on the left you can view different slices of time and
+explore different transportation trends. 
+"""
 
 import streamlit as st
 import pandas as pd
@@ -21,10 +27,10 @@ import numpy as np
 import altair as alt
 import pydeck as pdk
 
-# SETTING PAGE CONFIG TO WIDE MODE
+# Set the page config to widemoe.
 st.set_page_config(layout="wide")
 
-# LOADING DATA
+# The column which holds the datetime data
 DATE_TIME = "Date/Time"
 
 
@@ -39,76 +45,45 @@ def load_data(nrows):
     return data
 
 
-data = load_data(100000)
+data = load_data(500000)
 
-# zoom_level = 12
 
-# Lat, lon, zoom
+def map(data, lat, lon, zoom) -> pdk.Deck:
+    """Returns a nice looking PyDeck map focused on one part of the data."""
+    MAP_STYLE = "mapbox://styles/mapbox/light-v9"
+    view_state = dict(latitude=lat, longitude=lon, zoom=zoom, pitch=40)
+    data_config = dict(data=data, get_position=["Lon", "Lat"])
+    hex_config = dict(radius=75, elevation_scale=5, elevation_range=[0, 1000])
+    mouse_config = dict(pickable=False, extruded=True)
+    layer = pdk.Layer("HexagonLayer", **data_config, **hex_config, **mouse_config)
+    return pdk.Deck(map_style=MAP_STYLE, initial_view_state=view_state, layers=[layer])
+
+
 maps = {
-    "New York City": (40.7359, -73.9780, 11),
+    "New York City": (40.7359, -73.9780, 12),
     "La Guardia Airport": (40.7900, -73.8700, 12),
     "JFK Airport": (40.6650, -73.7821, 12),
     "Newark Airport": (40.7090, -74.1805, 12),
 }
-# CREATING FUNCTION FOR MAPS
 
 
-def map(data, lat, lon, zoom):
-    st.write(
-        pdk.Deck(
-            map_style="mapbox://styles/mapbox/light-v9",
-            initial_view_state={
-                "latitude": lat,
-                "longitude": lon,
-                "zoom": zoom,
-                "pitch": 50,
-            },
-            layers=[
-                pdk.Layer(
-                    "HexagonLayer",
-                    data=data,
-                    get_position=["Lon", "Lat"],
-                    radius=100,
-                    elevation_scale=4,
-                    elevation_range=[0, 1000],
-                    pickable=True,
-                    extruded=True,
-                ),
-            ],
-        )
-    )
-
+# # Show the Streamilt veresion
+# st.info(f"Streamlit version `{st.__version__}`")
 
 # LAYING OUT THE TOP SECTION OF THE APP
-row1_1, row1_2 = st.beta_columns((2, 3))
+col1, col2 = st.beta_columns(2)
+col1.write(__doc__)
+col2.subheader("")
+hour_selected = col2.slider("Select hour of pickup", 0, 23)
+names = ["New York City"] + col2.multiselect("Location", list(maps)[1:])
+st.write("---")
 
-with row1_1:
-    st.title("NYC Uber Ridesharing Data")
-    hour_selected = st.slider("Select hour of pickup", 0, 23)
-
-with row1_2:
-    st.write(
-        """
-    ##
-    Examining how Uber pickups vary over time in New York City's and at its major regional airports.
-    By sliding the slider on the left you can view different slices of time and explore different transportation trends.
-    """
-    )
-
-# FILTERING DATA BY HOUR SELECTED
+# Display the maps
 data = data[data[DATE_TIME].dt.hour == hour_selected]
-
-# for ((name, (lat, lon, zoom)), col) in zip(maps.items(), st.beta_columns(4)):
-#     # with col:
-#     st.write(f"**{name}**")
-#     map(data, lat, lon, zoom)
-
-for (name, (lat, lon, zoom)) in maps.items():
-    # with col:
-    # if "new" in name.lower():
-    #     continue
-    st.write(f"**{name}**")
-    map(data, lat, lon, zoom)
+for name, col in zip(names, st.beta_columns(len(names))):
+    lat, lon, zoom = maps[name]
+    with col:
+        st.write(f"**{name}**", map(data, lat, lon, zoom))
     # break
 # st.write(name, lat, lon, zoom, type(col)
 
