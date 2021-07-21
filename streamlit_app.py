@@ -23,29 +23,23 @@ explore different transportation trends.
 
 import streamlit as st
 import pandas as pd
-import numpy as np
 import altair as alt
 import pydeck as pdk
 
 # Set the page config to widemoe.
 st.set_page_config(layout="wide")
-
-# The column which holds the datetime data
-DATE_TIME = "Date/Time"
+st.expander = st.beta_expander
+URL = "http://s3-us-west-2.amazonaws.com/streamlit-demo-data/uber-raw-data-sep14.csv.gz"
 
 
 @st.cache(persist=True)
 def load_data(nrows):
-    data: pd.DataFrame = pd.read_csv(
-        "http://s3-us-west-2.amazonaws.com/streamlit-demo-data/"
-        "uber-raw-data-sep14.csv.gz",
-        nrows=nrows,
-    )  # type: ignore
-    data[DATE_TIME] = pd.to_datetime(data[DATE_TIME])  # type: ignore
+    """Load `nrows` rows of Uber ride pickup data."""
+    data: pd.DataFrame = pd.read_csv(URL, nrows=nrows)  # type: ignore
+    date_time = pd.to_datetime(data["Date/Time"])  # type: ignore
+    data["hour"] = date_time.dt.hour
+    data["minute"] = date_time.dt.minute
     return data
-
-
-data = load_data(500000)
 
 
 def map(data, lat, lon, zoom) -> pdk.Deck:
@@ -66,92 +60,30 @@ maps = {
     "Newark Airport": (40.7090, -74.1805, 12),
 }
 
-
-# # Show the Streamilt veresion
-# st.info(f"Streamlit version `{st.__version__}`")
-
-# LAYING OUT THE TOP SECTION OF THE APP
+# Layout the top section of the app
 col1, col2 = st.beta_columns(2)
 col1.write(__doc__)
 col2.subheader("")
 hour_selected = col2.slider("Select hour of pickup", 0, 23)
-names = ["New York City"] + col2.multiselect("Location", list(maps)[1:])
+names = col2.multiselect("Location", list(maps), list(maps)[:-1])
 st.write("---")
 
 # Display the maps
-data = data[data[DATE_TIME].dt.hour == hour_selected]
+data = load_data(50000)
+data = data[data.hour == hour_selected]
 for name, col in zip(names, st.beta_columns(len(names))):
     lat, lon, zoom = maps[name]
     with col:
         st.write(f"**{name}**", map(data, lat, lon, zoom))
-    # break
-# st.write(name, lat, lon, zoom, type(col)
 
-
-# raise RuntimeError("Nothing.")
-# # LAYING OUT THE MIDDLE SECTION OF THE APP WITH THE MAPS
-# # row2_1, row2_2, row2_3, row2_4 =
-
-# # # SETTING THE ZOOM LOCATIONS FOR THE AIRPORTS
-# # la_guardia = [40.7900, -73.8700]
-# # jfk = [40.6650, -73.7821]
-# # newark = [40.7090, -74.1805]
-# # zoom_level = 12
-# # midpoint = [40.7359, -73.9780]
-# # midpoint = (np.average(data["lat"]), np.average(data["lon"]))
-# # st.write("midpoint", midpoint)
-
-
-# with row2_1:
-#     st.write(
-#         "**All New York City from %i:00 and %i:00**"
-#         % (hour_selected, (hour_selected + 1) % 24)
-#     )
-#     map(data, midpoint[0], midpoint[1], 11)
-
-# with row2_2:
-#     st.write("**La Guardia Airport**")
-#     map(data, la_guardia[0], la_guardia[1], zoom_level)
-
-# with row2_3:
-#     st.write("**JFK Airport**")
-#     map(data, jfk[0], jfk[1], zoom_level)
-
-# with row2_4:
-#     st.write("**Newark Airport**")
-#     map(data, newark[0], newark[1], zoom_level)
-
-# # FILTERING DATA FOR THE HISTOGRAM
-# filtered = data[
-#     (data[DATE_TIME].dt.hour >= hour_selected)  # type: ignore
-#     & (data[DATE_TIME].dt.hour < (hour_selected + 1))  # type: ignore
-# ]
-
-# hist = np.histogram(
-#     filtered[DATE_TIME].dt.minute, bins=60, range=(0, 60)  # type: ignore
-# )[0]
-
-# chart_data = pd.DataFrame({"minute": range(60), "pickups": hist})
-
-# # LAYING OUT THE HISTOGRAM SECTION
-
-# st.write("")
-
-# st.write(
-#     "**Breakdown of rides per minute between %i:00 and %i:00**"
-#     % (hour_selected, (hour_selected + 1) % 24)
-# )
-
-# st.altair_chart(
-#     alt.Chart(chart_data)
-#     .mark_area(
-#         interpolate="step-after",
-#     )
-#     .encode(
-#         x=alt.X("minute:Q", scale=alt.Scale(nice=False)),
-#         y=alt.Y("pickups:Q"),
-#         tooltip=["minute", "pickups"],
-#     )
-#     .configure_mark(opacity=0.5, color="red"),
-#     use_container_width=True,
-# )
+# Display the histogram
+st.altair_chart(
+    alt.Chart(data)
+    .mark_area(color="lightblue", interpolate="step-after", line=True)
+    .encode(
+        x=alt.X("minute:Q", title="Minute", scale=alt.Scale(nice=False)),
+        y=alt.Y("count()", title="Rides"),
+        tooltip=["minute", "count():Q"],
+    ),
+    use_container_width=True,
+)
