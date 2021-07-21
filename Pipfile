@@ -4,7 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-streamlit = ">=0.84.1"
+streamlit = ">=0.84.2"
 
 [dev-packages]
 black = "*"  # Pretty formatting of Python code
